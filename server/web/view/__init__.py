@@ -44,7 +44,8 @@ def test(param):
 
 @app.route('/authorize')
 def login():
+    scope = request.args.get('scope')
+    if scope == None or scope != 'openid':
+        return "invalid_request", 400
+
     return "OK"
-
-
-
