@@ -35,13 +35,16 @@ def log_request():
                 request.headers.environ['SERVER_PROTOCOL'],
                 request.headers.environ['HTTP_USER_AGENT']))
 
-
 @app.route('/test/<param>')
 def test(param):
     key_name = 'test_value'
     redisclient.set(key_name, param)
     persisted_value = redisclient.get(key_name)
     return "OK %s" % persisted_value
+
+@app.route('/authorize')
+def login():
+    return "OK"
 
 
 # Stub method - to be replaced with the proper one that Matt writes
