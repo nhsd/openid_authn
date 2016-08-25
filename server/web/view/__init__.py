@@ -10,7 +10,6 @@ from storage import redisclient
 import hmac
 import hashlib
 import base64
-import pyjwt
 
 app = Flask(__name__)
 
@@ -143,10 +142,8 @@ def _get_client_info(client_id):
 # Stub method - to be replaced with the proper one that Matt writes
 def get_token(user_id, client_id):
     from datetime import datetime
-    ret = {'iss': 'https://dummy.co/stuff', 'sub': user_id, 'aud': client_id,
-           'exp': int(datetime.now().strftime("%s")) + 600, 'iat': int(datetime.now().strftime("%s"))}
-
-    return encode_token(json.dumps(ret))
+    ret = {'iss': 'https://dummy.co/stuff', 'sub': user_id, 'aud': client_id, 'exp': int(datetime.now().timestamp()) + 600, 'iat': int(datetime.now().timestamp())}
+    return encode_token(json.dumps(ret).encode('utf-8'))
 
 def get_token_header():
 
