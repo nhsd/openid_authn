@@ -5,7 +5,7 @@ from storage import redisclient
 import view
 import json
 from datetime import datetime, time
-
+from urllib.parse import urlparse, parse_qs
 
 class tests_view(unittest.TestCase):
 
@@ -23,7 +23,8 @@ class tests_view(unittest.TestCase):
 
         self.assertEqual(returned_value, expected_value, 'Test method did not return the expected value')
 
-    def test__view__login__whenCalledWithNoResponseType_willReturnInvalidRequest(self):
+
+    def test__view__login__whenCalledWithNoResponseType_willRedurectWithInvalidRequest(self):
 
         data = {
             'scope': 'openid',
@@ -32,9 +33,14 @@ class tests_view(unittest.TestCase):
             'redirect_uri': 'https%3A%2F%2Fclient.example.org%2Fcb'}
 
         response = self.app.get('authorize', query_string=data, environ_base={'REMOTE_ADDR': 'ex', 'HTTP_USER_AGENT': 'ex'})
-        self.assertEqual(response.status_code, 400)
 
-    def test__view__login__whenCalledWithInvalidResponseType_willReturnInvalidRequest(self):
+        p = urlparse(response.location)
+        args = parse_qs(p.query)
+
+        self.assertEqual(args.get('error')[0], 'invalid_request')
+        self.assertEqual(response.status_code, 302)
+
+    def test__view__login__whenCalledWithInvalidResponseType_willRedirectWithUnsupportedResponseType(self):
         data = {
             'response_type': 'mess',
             'scope': 'openid',
@@ -44,9 +50,14 @@ class tests_view(unittest.TestCase):
 
         response = self.app.get('authorize', query_string=data,
                                 environ_base={'REMOTE_ADDR': 'ex', 'HTTP_USER_AGENT': 'ex'})
-        self.assertEqual(response.status_code, 400)
 
-    def test__view__login__whenCalledWithNoScope_willReturnInvalidRequest(self):
+        p = urlparse(response.location)
+        args = parse_qs(p.query)
+
+        self.assertEqual(args.get('error')[0], 'unsupported_response_type')
+        self.assertEqual(response.status_code, 302)
+
+    def test__view__login__whenCalledWithNoScope_willRedirectWithInvalidRequest(self):
 
         data = {
             'response_type': 'code',
@@ -55,9 +66,14 @@ class tests_view(unittest.TestCase):
             'redirect_uri': 'https%3A%2F%2Fclient.example.org%2Fcb'}
 
         response = self.app.get('authorize', query_string=data, environ_base={'REMOTE_ADDR': 'ex', 'HTTP_USER_AGENT': 'ex'})
-        self.assertEqual(response.status_code, 400)
 
-    def test__view__login__whenCalledWithInvalidScope_willReturnInvalidRequest(self):
+        p = urlparse(response.location)
+        args = parse_qs(p.query)
+
+        self.assertEqual(args.get('error')[0], 'invalid_request')
+        self.assertEqual(response.status_code, 302)
+
+    def test__view__login__whenCalledWithInvalidScope_willRedirectWithInvalidScope(self):
 
         data = {
             'response_type': 'code',
@@ -67,9 +83,14 @@ class tests_view(unittest.TestCase):
             'redirect_uri': 'https%3A%2F%2Fclient.example.org%2Fcb'}
 
         response = self.app.get('authorize', query_string=data, environ_base={'REMOTE_ADDR': 'ex', 'HTTP_USER_AGENT': 'ex'})
-        self.assertEqual(response.status_code, 400)
 
-    def test__view__login__whenCalledWithNoClientId_willReturnInvalidRequest(self):
+        p = urlparse(response.location)
+        args = parse_qs(p.query)
+
+        self.assertEqual(args.get('error')[0], 'invalid_scope')
+        self.assertEqual(response.status_code, 302)
+
+    def test__view__login__whenCalledWithNoClientId_willRedirectWithInvalidRequest(self):
 
         data = {
             'response_type': 'code',
@@ -78,9 +99,32 @@ class tests_view(unittest.TestCase):
             'redirect_uri': 'https%3A%2F%2Fclient.example.org%2Fcb'}
 
         response = self.app.get('authorize', query_string=data, environ_base={'REMOTE_ADDR': 'ex', 'HTTP_USER_AGENT': 'ex'})
-        self.assertEqual(response.status_code, 400)
 
-    def test__view__login__whenCalledWithNoState_willReturnInvalidRequest(self):
+        p = urlparse(response.location)
+        args = parse_qs(p.query)
+
+        self.assertEqual(args.get('error')[0], 'invalid_request')
+        self.assertEqual(response.status_code, 302)
+
+    def test__view__login__whenCalledWithUnknownClientId_willRedirectWithAccessDenied(self):
+
+        data = {
+            'response_type': 'code',
+            'scope': 'openid',
+            'client_id': 'unknown',
+            'state': 'af0ifjsldkj',
+            'redirect_uri': 'https%3A%2F%2Fclient.example.org%2Fcb' }
+
+        response = self.app.get('authorize', query_string=data,
+                                environ_base={'REMOTE_ADDR': 'ex', 'HTTP_USER_AGENT': 'ex'})
+
+        p = urlparse(response.location)
+        args = parse_qs(p.query)
+
+        self.assertEqual(args.get('error')[0], 'access_denied')
+        self.assertEqual(response.status_code, 302)
+
+    def test__view__login__whenCalledWithNoState_willRedirectWithInvalidRequest(self):
 
         data = {
             'response_type': 'code',
@@ -89,9 +133,14 @@ class tests_view(unittest.TestCase):
             'redirect_uri': 'https%3A%2F%2Fclient.example.org%2Fcb'}
 
         response = self.app.get('authorize', query_string=data, environ_base={'REMOTE_ADDR': 'ex', 'HTTP_USER_AGENT': 'ex'})
-        self.assertEqual(response.status_code, 400)
 
-    def test__view__login__whenCalledWithNoRedirect_willReturnInvalidRequest(self):
+        p = urlparse(response.location)
+        args = parse_qs(p.query)
+
+        self.assertEqual(args.get('error')[0], 'invalid_request')
+        self.assertEqual(response.status_code, 302)
+
+    def test__view__login__whenCalledWithNoRedirect_willReturn400(self):
 
         data = {
             'response_type': 'code',
@@ -102,6 +151,22 @@ class tests_view(unittest.TestCase):
         response = self.app.get('authorize', query_string=data, environ_base={'REMOTE_ADDR': 'ex', 'HTTP_USER_AGENT': 'ex'})
         self.assertEqual(response.status_code, 400)
 
+    def test__view__login__whenCalledWithInvalidRedirect_WillRedirectWithAccessDenied(self):
+        data = {
+            'response_type': 'code',
+            'scope': 'openid',
+            'client_id': 'example',
+            'state': 'af0ifjsldkj',
+            'redirect_uri': 'nope'}
+
+        response = self.app.get('authorize', query_string=data,
+                                environ_base={'REMOTE_ADDR': 'ex', 'HTTP_USER_AGENT': 'ex'})
+
+        p = urlparse(response.location)
+        args = parse_qs(p.query)
+
+        self.assertEqual(args.get('error')[0], 'access_denied')
+        self.assertEqual(response.status_code, 302)
 
     def test__view__get_token__whenCalled__returnsAValidJWTWithValidValues(self):
         expected_fields = ['iss', 'sub', 'aud', 'exp', 'iat']
