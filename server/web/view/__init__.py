@@ -47,18 +47,22 @@ def login():
     (valid, reason) = _is_valid_authorize_request(request)
     if not valid:
         if reason == 'no_redirect_uri':
-            return reason, 400
+            return render_template('error.html', \
+                message="The client you have come from is not properly configured. Please go back.")
 
         redirect_uri = request.args.get('redirect_uri')
         state = request.args.get('state')
 
-        if reason == 'unknown_client' or reason == 'invalid_redirect_uri':
-            # TODO: inform user of what happened.
-            reason = 'access_denied'
-
-        uri = redirect_uri + '?' + 'error=' + reason
+        uri = redirect_uri + '?'
         if state is not None:
-            uri += '&state=' + state
+            uri += 'state=' + state + '&'
+
+        if reason == 'unknown_client' or reason == 'invalid_redirect_uri':
+            return render_template('error.html', \
+                message="You've come from a client we don't recognise so we can't sign you in.", \
+                redirect=[uri+'error=access_denied'])
+
+        uri += 'error=' + reason
         return redirect(uri, code=302)
     return render_template('login.html', errorMessage = "")
 
@@ -87,7 +91,7 @@ def _is_valid_authorize_request(request):
     state = request.args.get('state')
     redirect_uri = request.args.get('redirect_uri')
 
-    if redirect_uri is None:
+    if redirect_uri is None or redirect_uri == '':
         return False, 'no_redirect_uri'
 
     if response_type is None or scope is None or client_id is None or state is None:
