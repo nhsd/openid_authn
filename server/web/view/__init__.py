@@ -42,7 +42,7 @@ def test(param):
     persisted_value = redisclient.get(key_name)
     return "OK %s" % persisted_value
 
-@app.rout('/login')
+@app.route('/authorize')
 def login():
     return "OK"
 
