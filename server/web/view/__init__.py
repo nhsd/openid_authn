@@ -60,11 +60,21 @@ def login():
         if state is not None:
             uri += '&state=' + state
         return redirect(uri, code=302)
-    return render_template('login.html')
+    return render_template('login.html', errorMessage = "")
 
-@app.route('/credentialsSubmitted/')
+@app.route('/credentialsSubmitted', methods=['GET', 'POST'])
 def submit_credentials():
-  return render_template('auth_page.html')
+    stored_username = redisclient.hget('user:1000', 'username')
+    stored_password = redisclient.hget('user:1000', 'password')
+
+    entered_username = request.form["user"]
+    entered_password = request.form["passw"]
+
+    if stored_username == entered_username and stored_password == entered_password:
+        return render_template('auth_page.html')
+    else:
+        return render_template('login.html', errorMessage = "Incorrect username or password.")
+
 
 def _is_valid_authorize_request(request):
 
