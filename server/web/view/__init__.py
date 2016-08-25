@@ -7,6 +7,11 @@ import os, requests
 from functools import wraps
 import logging
 from storage import redisclient
+import hmac
+import hashlib
+import base64
+import pyjwt
+
 
 app = Flask(__name__)
 
@@ -66,6 +71,38 @@ def login():
 def submit_credentials():
   return render_template('auth_page.html')
 
+@app.route('/token')
+def token_callback():
+    authorization_string = request.headers.Authorization
+    decoded_authorization_string = decode_authorization_header(authorization_string)
+
+    client_id = decoded_authorization_string.header.clientID
+    secret = decoded_authorization_string.header.secret
+
+    grant_type_param = request.args.get('grant_type')
+    code_param = request.args.get('code')
+    redirect_uri_param = request.args.get('redirect_uri')
+
+
+
+
+    request_headers = dict([("client_id", client_id), ("secret", secret)])
+    request_parameters = dict([("grant_type", grant_type_param), ("code", code_param), ("redirect_uri", redirect_uri_param)])
+    request_signature = dict([])
+
+    token = dict([('sub', "alice"), ('iss', "https://openid.c2id.com"),
+                  ('aud', client_id), ('auth_time', 1311280969), ('acr', "c2id.loa.hisec"), ('iat', 1311280970),
+                  ('exp', 1311281970)])
+
+    encoded_token = encode_token(token)
+    response =    {'id_token': encoded_token,
+     "access_token": "SlAV32hkKG",
+     "token_type": "Bearer",
+     "expires_in": 3600}
+
+    json_response = json.dumps(response)
+    return json_response
+
 def _is_valid_authorize_request(request):
 
     if len(request.args) > 5:
@@ -110,3 +147,10 @@ def get_token(session_id):
     ret = {'iss': 'https://dummy.co/stuff', 'sub': '01234567', 'aud': '', 'exp': int(datetime.now().strftime("%s")) + 600, 'iat': int(datetime.now().strftime("%s"))}
 
     return json.dumps(ret)
+
+def decode_authorization_header(authorization_string):
+    return base64.b64decode(authorization_string)
+
+
+def encode_token(token):
+    return base64.b64encode(token)
