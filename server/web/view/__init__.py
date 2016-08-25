@@ -56,7 +56,7 @@ def login():
             #TODO: inform user of what happened.
             reason = 'access_denied'
 
-        uri = redirect_uri + '?' + 'error=' + reason + '&'
+        uri = redirect_uri + '?' + 'error=' + reason
         if state is not None:
             uri += '&state=' + state
         return redirect(uri, code=302)
@@ -98,7 +98,7 @@ def _is_valid_authorize_request(request):
 
 def _get_client_info(client_id):
     if client_id == "example":
-        return { 'client_id': 'example', 'redirect_uri': 'https%3A%2F%2Fclient.example.org%2Fcb' }
+        return { 'client_id': 'example', 'redirect_uri': 'https://client.example.org/cb' }
     return None
 
 # Stub method - to be replaced with the proper one that Matt writes
