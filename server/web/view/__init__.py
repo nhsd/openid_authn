@@ -44,11 +44,29 @@ def test(param):
 
 @app.route('/authorize')
 def login():
-    scope = request.args.get('scope')
-    if scope == None or scope != 'openid':
+    if not _is_valid_request(request):
         return "invalid_request", 400
+
+    #TODO: Check client ID is known ID
+    #TODO: Check url is registered url
+
     return "OK"
 
+def _is_valid_request(request):
+    response_type = request.args.get('response_type')
+    scope = request.args.get('scope')
+    client_id = request.args.get('client_id')
+    state = request.args.get('state')
+    redirect_uri = request.args.get('request_uri')
+
+    if response_type is None or response_type != 'code' \
+            or scope is None or scope != 'openid' \
+            or client_id is None \
+            or state is None \
+            or redirect_uri is None:
+        return False
+
+    return True
 
 # Stub method - to be replaced with the proper one that Matt writes
 def get_token(session_id):
