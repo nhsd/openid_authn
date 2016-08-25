@@ -44,14 +44,65 @@ def test(param):
 
 @app.route('/authorize')
 def login():
-    scope = request.args.get('scope')
-    if scope == None or scope != 'openid':
-        return "invalid_request", 400
+    (valid, reason) = _is_valid_authorize_request(request)
+    if not valid:
+        if reason == 'no_redirect_uri':
+            return reason, 400
+
+        redirect_uri = request.args.get('redirect_uri')
+        state = request.args.get('state')
+
+        if reason == 'unknown_client' or reason == 'invalid_redirect_uri':
+            # TODO: inform user of what happened.
+            reason = 'access_denied'
+
+        uri = redirect_uri + '?' + 'error=' + reason
+        if state is not None:
+            uri += '&state=' + state
+        return redirect(uri, code=302)
     return render_template('login.html')
 
 @app.route('/credentialsSubmitted/')
 def submit_credentials():
   return render_template('auth_page.html')
+
+def _is_valid_authorize_request(request):
+
+    if len(request.args) > 5:
+        return False, "invalid_request"
+
+    response_type = request.args.get('response_type')
+    scope = request.args.get('scope')
+    client_id = request.args.get('client_id')
+    state = request.args.get('state')
+    redirect_uri = request.args.get('redirect_uri')
+
+    if redirect_uri is None:
+        return False, 'no_redirect_uri'
+
+    if response_type is None or scope is None or client_id is None or state is None:
+        return False, "invalid_request"
+    if response_type != 'code':
+        return False, 'unsupported_response_type'
+
+    if scope != 'openid':
+        return False, "invalid_scope"
+
+    #TODO: Get client info from redis
+    client_info = _get_client_info(client_id)
+
+    if client_info is None:
+        return False, 'unknown_client'
+
+    if redirect_uri != client_info['redirect_uri']:
+        return False, 'invalid_redirect_uri'
+
+    return True, ''
+
+def _get_client_info(client_id):
+    if client_id == "example":
+        return { 'client_id': 'example', 'redirect_uri': 'https://client.example.org/cb' }
+    return None
 
 # Stub method - to be replaced with the proper one that Matt writes
 def get_token(session_id):
