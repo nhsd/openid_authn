@@ -47,8 +47,11 @@ def login():
     scope = request.args.get('scope')
     if scope == None or scope != 'openid':
         return "invalid_request", 400
-    return "OK"
+    return render_template('login.html')
 
+@app.route('/credentialsSubmitted/')
+def submit_credentials():
+  return render_template('auth_page.html')
 
 # Stub method - to be replaced with the proper one that Matt writes
 def get_token(session_id):
