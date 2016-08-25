@@ -47,5 +47,12 @@ def login():
     scope = request.args.get('scope')
     if scope == None or scope != 'openid':
         return "invalid_request", 400
-
     return "OK"
+
+
+# Stub method - to be replaced with the proper one that Matt writes
+def get_token(session_id):
+    from datetime import datetime
+    ret = {'iss': 'https://dummy.co/stuff', 'sub': '01234567', 'aud': '', 'exp': int(datetime.now().strftime("%s")) + 600, 'iat': int(datetime.now().strftime("%s"))}
+
+    return json.dumps(ret)
