@@ -1,3 +1,4 @@
+import base64
 import unittest
 import mock
 from flask import Response
@@ -160,13 +161,14 @@ class tests_view(unittest.TestCase):
 
     def test__view__get_token__whenCalled__returnsAValidJWTWithValidValues(self):
         expected_fields = ['iss', 'sub', 'aud', 'exp', 'iat']
-        raw_returned_token = view.get_token('session_id')
-        returned_token = json.loads(raw_returned_token)
+        raw_returned_token = view.get_token('158616253415', '731983621552')
+        decoded_token = base64.b64decode(raw_returned_token)
+        returned_token = json.loads(decoded_token.decode('utf-8'))
 
         for field in expected_fields:
             self.assertTrue(field in returned_token, 'Field \'%s\' does not exist in the returned token %s' % (field, raw_returned_token))
 
-        expected_min_iat_time = int(datetime.now().strftime("%s")) - 5
+        expected_min_iat_time = int(datetime.now().timestamp()) - 5
         expected_max_iat_time = expected_min_iat_time + 10
         expected_min_exp_time = expected_min_iat_time + 600 # Assumes 10 minute token lifetime
         expected_max_exp_time = expected_min_exp_time + 10

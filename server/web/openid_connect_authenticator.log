@@ -7,6 +7,7 @@
 2016-08-25 15:05:18,331 openid_connect_authenticator INFO Run server started
 2016-08-25 15:05:18,647 openid_connect_authenticator INFO Run server started
 2016-08-25 15:07:22,313 openid_connect_authenticator INFO Run server started
+<<<<<<< .mine
 2016-08-25 15:08:20,279 openid_connect_authenticator INFO Run server started
 2016-08-25 15:10:54,058 openid_connect_authenticator INFO Run server started
 2016-08-25 15:10:54,377 openid_connect_authenticator INFO Run server started
@@ -101,3 +102,99 @@
 2016-08-25 17:14:33,698 openid_connect_authenticator INFO Run server started
 2016-08-25 17:14:34,017 openid_connect_authenticator INFO Run server started
 2016-08-25 17:16:15,172 openid_connect_authenticator INFO Run server started
+=======
+2016-08-25 16:29:27,922 openid_connect_authenticator INFO Run server started
+2016-08-25 16:29:28,259 openid_connect_authenticator INFO Run server started
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+>>>>>>> .theirs
