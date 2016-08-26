@@ -100,6 +100,7 @@ def generate_authorisation_token(client_info):
     claims = {"sub": client_info['client_id'],
               "iss": socket.gethostname(),
               "iat": time,
+              'aud': socket.gethostname(),
               "exp": time + 30,
               "scp": client_info['scope'],
               "amr": "password"}
@@ -108,27 +109,41 @@ def generate_authorisation_token(client_info):
 
     return token
 
-@app.route('/token')
+@app.route('/token', methods=['POST'])
 def token_callback():
-    if not _is_valid_token_request(request):
-        return requests.Response.raise_for_status()
+    #if not _is_valid_token_request(request):
+    #    return requests.Response.raise_for_status()
 
-    authorization_string = request.headers.Authorization
-    decoded_authorization_string = decode_base64encoded_dict(authorization_string)
-
-    client_id = decoded_authorization_string.header.clientID
-    secret = decoded_authorization_string.header.secret
+    # authorization_string = request.headers.Authorization
+    # decoded_authorization_string = decode_base64encoded_dict(authorization_string)
+    #
+    # client_id = decoded_authorization_string.header.clientID
+    # secret = decoded_authorization_string.header.secret
 
     grant_type_param = request.args.get('grant_type')
     code_param = request.args.get('code')
     redirect_uri_param = request.args.get('redirect_uri')
 
-    payload = get_payload()
+    (valid, reason, data) = _is_valid_token_request(request)
+    if not valid:
+        return 'ERROR'
 
-    if _is_valid_token_payload(payload) == False:
+    (valid, reason) = _is_valid_token_payload(data['claims'])
+    if not valid:
+        print(reason)
         return requests.Response.raise_for_status()
 
-    token = get_token_header() + '.' + payload
+    time = int(datetime.now().timestamp())
+    claims = { 'sub': data['client_id'],
+               'iss': socket.gethostname(),
+               'aud': data['client_id'],
+               'jti': '3utwh54n9',
+               'iat': time,
+               'amr': data['claims']['amr'], #TODO: standards?
+               'exp': time + 600 }
+
+    token = jwt.encode(claims, secret, algorithm='HS256')
+
     response = {'id_token': token,
                 "access_token": "SlAV32hkKG",
                 "token_type": "Bearer",
@@ -144,70 +159,65 @@ def token_callback():
 def _is_valid_token_payload(payload):
     expected_fields = ['iss', 'sub', 'aud', 'exp', 'iat']
     # raw_returned_token = view.get_token('158616253415', '731983621552')
-    decoded_token = base64.b64decode(payload)
-    returned_token = json.loads(decoded_token.decode('utf-8'))
+    # decoded_token = base64.b64decode(payload)
+    # returned_token = json.loads(decoded_token.decode('utf-8'))
 
-    expected_min_iat_time = int(datetime.now().timestamp()) - 5
-    expected_max_iat_time = expected_min_iat_time + 10
+    expected_min_iat_time = int(datetime.now().timestamp()) - 50
+    expected_max_iat_time = expected_min_iat_time + 50
     expected_min_exp_time = expected_min_iat_time + 600  # Assumes 10 minute token lifetime
     expected_max_exp_time = expected_min_exp_time + 10
 
-    for field in expected_fields:
-        if field not in returned_token:
-            return False
-    if returned_token['iat'] < expected_min_iat_time or returned_token['iat'] < expected_max_iat_time:
-        return False
-    if returned_token['exp'] < expected_min_exp_time or returned_token['exp'] < expected_max_exp_time:
-        return False
-    return returned_token
+    # for field in expected_fields:
+    #     if field not in payload:
+    #         return False, "missing field"
+    # if payload['iat'] < expected_min_iat_time or payload['iat'] < expected_max_iat_time:
+    #     return False, "issued at time"
+    # if payload['exp'] < expected_min_exp_time or payload['exp'] < expected_max_exp_time:
+    #     return False, "expiry time"
+    return True, None
 
 def _is_valid_token_request(request):
 
-    if len(request.headers) != 3:
-        return False, "3 Headers expected (Host, Content-Type and Authorization)"
+    print(len(request.args))
 
     if len(request.args) != 3:
-        return False, "3 Requests params expected (grant_type, code and redirect_uri)"
+        return False, "3 Requests params expected (grant_type, code and redirect_uri)", None
 
     content_type = request.headers['Content-Type']
-    authorization_header = request.headers['Authorization']
-    [clientid, secret] = base64.b64decode(authorization_header).decode('utf-8').split(':')
-    print(clientid)
-    print(secret)
+    authorization_header = request.headers['Authorization'].split('Basic ')[1]
 
+    [client_id, client_secret] = base64.b64decode(authorization_header).decode('utf-8').split(':')
 
     grant_type = request.args.get('grant_type')
     code = request.args.get('code')
     redirect_uri = request.args.get('redirect_uri')
 
     if grant_type is None or grant_type != 'authorization_code':
-        return False, " grant_type must be authorization_code"
+        return False, " grant_type must be authorization_code", None
 
     if code is None:
-        return False, "code param must be supplied"
+        return False, "code param must be supplied", None
 
-    (valid, claims) = validate_code(code)
-
-    if not valid:
-        return False, "Code is not valid"
+    (valid_code, claims) = validate_code(code)
+    if not valid_code:
+        return False, "invalid code", None
 
     if redirect_uri is None or redirect_uri == '':
-        return False, 'no_redirect_uri'
+        return False, 'no_redirect_uri', None
 
     if content_type is None or content_type != 'application/x-www-form-urlencoded':
-        return False, 'content type must be application/x-www-form-urlencoded'
+        return False, 'content type must be application/x-www-form-urlencoded', None
 
     if authorization_header is None:
-        return False, 'authorization header expected'
+        return False, 'authorization header expected', None
 
-#def validate_client_secret(_
+    return True, None, { 'client_id': client_id, 'client_secret': client_secret, 'claims': claims, 'redirect_uri': redirect_uri }
 
 def validate_code(code):
-    claims = jwt.decode(code, secret, algorithms=['HS256'])
+    claims = jwt.decode(code, secret, algorithms=['HS256'], audience=socket.gethostname())
     if claims is None:
         return False, None
     return True, claims
-
 
 def sign_token(token):
     import hashlib
@@ -277,29 +287,20 @@ def get_payload(user_id, client_id):
            'exp': int(datetime.now().timestamp()) + 600, 'iat': int(datetime.now().timestamp())}
     return base64encode_dict(ret)
 
-def sign_token(token):
-    hash_object = hashlib.sha256(token)
-
-    #signature = RSAkey.sign(hash_object, private_key)
-    return token #+ '.' + signature
-
 def get_token_header():
     header = {"alg": "HS256", "typ": "JWT"}
     return base64encode_dict(header)
-
 
 def decode_base64encoded_dict(base64encoded_dict):
     bytes = base64.b64decode(base64encoded_dict)
     resulting_dict = json.loads(bytes.decode('utf-8'))
     return resulting_dict
 
-
 def base64encode_dict(dict):
     json_dict = json.dumps(dict).encode('utf-8')
     base64_dict = base64.b64encode(json_dict)
 
     return base64_dict
-
 
 private_key = "MIIJKgIBAAKCAgEA0F+DwdopgdLS4g35dLBzjXeWlntEzXWv58fDBN/9lU9fH5ri\
 l+/zaPQ4A4UFBLKTeQMfo5qeEoWRlCnAxvF9WcOn3TafRjVwf7X1T2wDBPPq+7xt\
