@@ -103,8 +103,7 @@ def generate_authorisation_token(client_info):
                'exp': time + 30,
                'amr': 'password' }
 
-    return encode_token(json.dumps(header).encode('utf-8')) + '.' + \
-           encode_token(json.dumps(claims).encode('utf-8')) + '.'
+    return base64encode_dict(header) + '.' + base64encode_dict(claims) + '.'
 
 @app.route('/token')
 def token_callback():
