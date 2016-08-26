@@ -110,7 +110,7 @@ def generate_authorisation_token(client_info):
 
 @app.route('/token')
 def token_callback():
-    if _is_valid_token_request(request) == False:
+    if not _is_valid_token_request(request):
         return requests.Response.raise_for_status()
 
     authorization_string = request.headers.Authorization
@@ -171,6 +171,10 @@ def _is_valid_token_request(request):
 
     content_type = request.headers['Content-Type']
     authorization_header = request.headers['Authorization']
+    [clientid, secret] = base64.b64decode(authorization_header).decode('utf-8').split(':')
+    print(clientid)
+    print(secret)
+
 
     grant_type = request.args.get('grant_type')
     code = request.args.get('code')
@@ -182,6 +186,11 @@ def _is_valid_token_request(request):
     if code is None:
         return False, "code param must be supplied"
 
+    (valid, claims) = validate_code(code)
+
+    if not valid:
+        return False, "Code is not valid"
+
     if redirect_uri is None or redirect_uri == '':
         return False, 'no_redirect_uri'
 
@@ -189,7 +198,15 @@ def _is_valid_token_request(request):
         return False, 'content type must be application/x-www-form-urlencoded'
 
     if authorization_header is None:
-        return False, 'authorizatoin header expected'
+        return False, 'authorization header expected'
+
+#def validate_client_secret(_
+
+def validate_code(code):
+    claims = jwt.decode(code, secret, algorithms=['HS256'])
+    if claims is None:
+        return False, None
+    return True, claims
 
 
 def sign_token(token):
