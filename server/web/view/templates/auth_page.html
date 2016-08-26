@@ -43,16 +43,21 @@
                                         <br/>
                                         <img src="../static/img/{{ client_info.image }}" height="100px">
                                         <br/>
+										<br/>
+										<p>Hello {{ user_id }},</p>
 										<h2>{{ client_info.client_name }} would like to:</h2>
                                         <ul>
                                             {% for scope in scopes %}
                                             <li>{{ scope }}</li>
                                             {% endfor %}
                                         </ul>
+										<br/>
+										<p style="font-size:0.5em;">By clicking allow, you give permission for this application to use your information.</p>
 									</div>
 								</div>
                             </div>
                         </div>
+
                         <form action="authorisationSubmitted" method="Post" role="form" id="">
                             <input type="hidden" name="client_info" value="{{ client_info }}">
                             <div class="clearfix col-xs-10 col-xs-offset-1 col-md-8 col-md-offset-2 col-lg-6 col-lg-offset-3">

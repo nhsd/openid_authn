@@ -12,6 +12,7 @@ import hashlib
 import base64
 import socket
 from datetime import datetime
+from jose import jwt
 
 app = Flask(__name__)
 
@@ -27,8 +28,7 @@ redisclient(redis_ip, redis_port)
 
 log = logging.getLogger('view')
 
-scope_map = { "openid": "log you into their application" }
-
+scope_map = { "openid": "Use your login details", "email": "View your email address" }
 
 @app.before_request
 def log_request():
@@ -67,13 +67,15 @@ def submit_credentials():
     stored_password = redisclient.hget(request.form['user'], 'password')
     entered_password = request.form['passw']
 
+    print(request.form['client_info'])
+
     client_info = json.loads(request.form['client_info'].replace('\'', '"'))
 
     if stored_password == entered_password:
         scopes = []
         for scope in client_info['scope'].split(" "):
             scopes.append(scope_map[scope])
-        return render_template('auth_page.html', client_info = client_info, scopes = scopes)
+        return render_template('auth_page.html', client_info = client_info, scopes = scopes, user_id = request.form['user'])
     else:
         return render_template('login.html', errorMessage = "Incorrect username or password.", client_info = client_info)
 
@@ -90,20 +92,20 @@ def auth_submit():
 
     return redirect(client_info['redirect_uri'] + 'code=' + token + '&state=' + client_info['state'])
 
-def generate_authorisation_token(client_info):
+secret = 'fd2q9VmSZZW2QKz5PhLP'
 
-    header = { "alg":"none",
-               "typ":"JWT" }
+def generate_authorisation_token(client_info):
 
     time = int(datetime.now().timestamp())
 
-    claims = { "sub": client_info['client_id'],
-               "iss": socket.gethostname(),
-               "iat": time,
-               "exp": time + 30,
-               "amr": "password" }
+    claims = {"sub": client_info['client_id'],
+              "iss": socket.gethostname(),
+              "iat": time,
+              "exp": time + 30,
+              "scp": client_info['scope'],
+              "amr": "password"}
 
-    token = base64encode_dict(header).decode('utf-8') + '.' + base64encode_dict(claims).decode('utf-8') + '.'
+    token = jwt.encode(claims, secret, algorithm='HS256')
 
     return token
 
@@ -153,6 +155,13 @@ def _is_valid_token_payload(payload):
     return returned_token
 
 
+def sign_token(token):
+    import hashlib
+    hash_object = hashlib.sha256(token)
+    hex_dig = hash_object.hexdigest()
+
+    return hex_dig
+
 def _is_valid_authorize_request(request):
     if len(request.args) > 5:
         return False, "invalid_request", None
@@ -173,8 +182,11 @@ def _is_valid_authorize_request(request):
     if response_type != 'code':
         return False, 'unsupported_response_type', client_info
 
-    if scope != 'openid':
-        return False, "invalid_scope", client_info
+    valid_scopes = ['openid', 'email']
+    scopes = scope.split(' ')
+    for scope in scopes:
+        if scope not in valid_scopes:
+            return False, "invalid_scope", client_info
 
     client_info = _get_client_info(client_info)
 
@@ -192,9 +204,13 @@ def _get_client_info(client_info):
         client_name = redisclient.hget(client_info['client_id'], 'name')
         redirect_uri = redisclient.hget(client_info['client_id'], 'redirect_uri')
         image = redisclient.hget(client_info['client_id'], 'image')
+
         client_info['registered_redirect_uri'] = redirect_uri
         client_info['client_name'] = client_name
-        client_info['image'] = image
+
+        if image is not None:
+            client_info['image'] = image
+
         return client_info
     except Exception:
         return None
