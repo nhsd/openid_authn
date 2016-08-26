@@ -41,18 +41,20 @@
                                 <div class="clearfix">
 									<div class="lead">
                                         <br/>
-										<h2>This app would like to:</h2>
+                                        <img src="../static/img/{{ client_info.image }}" height="100px">
+                                        <br/>
+										<h2>{{ client_info.client_name }} would like to:</h2>
                                         <ul>
-                                            <li>View your email messages and settings</li>
+                                            {% for scope in scopes %}
+                                            <li>{{ scope }}</li>
+                                            {% endfor %}
                                         </ul>
 									</div>
 								</div>
                             </div>
                         </div>
                         <form action="authorisationSubmitted" method="Post" role="form" id="">
-                            <input type="hidden" name="client_id" value="{{ client_id }}">
-                            <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
-                            <input type="hidden" name="state" value="{{ state }}">
+                            <input type="hidden" name="client_info" value="{{ client_info }}">
                             <div class="clearfix col-xs-10 col-xs-offset-1 col-md-8 col-md-offset-2 col-lg-6 col-lg-offset-3">
                                 <input type="submit" role="button" class="btn btn-danger col-xs-12 col-sm-12 col-md-4 col-lg-3" name="auth" value="Cancel" style="margin-right: 10px;"></input>
                                 <input type="submit" role="button" class="btn btn-primary col-xs-12 col-sm-12 col-md-4 col-lg-3" name="auth" value="Accept"></input>

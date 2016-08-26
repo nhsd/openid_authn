@@ -25,6 +25,8 @@ redisclient(redis_ip, redis_port)
 
 log = logging.getLogger('view')
 
+scope_map = { "openid": "log you into their application" }
+
 
 @app.before_request
 def log_request():
@@ -48,24 +50,24 @@ def test(param):
 
 @app.route('/authorize')
 def login():
-    (valid, reason, context) = _is_valid_authorize_request(request)
+    (valid, reason, client_info) = _is_valid_authorize_request(request)
     if not valid:
         if reason == 'no_redirect_uri':
             return render_template('error.html', \
                 message="The client you have come from is not properly configured. Please go back.")
 
-        uri = context['redirect_uri'] + '?'
-        if context['state'] is not None:
-            uri += 'state=' + context['state'] + '&'
+        uri = client_info['redirect_uri'] + '?'
+        if client_info['state'] is not None:
+            uri += 'state=' + client_info['state'] + '&'
 
         if reason == 'unknown_client' or reason == 'invalid_redirect_uri':
             return render_template('error.html', \
                 message="You've come from a client we don't recognise so we can't sign you in.", \
-                redirect=[uri+'error=access_denied'])
+                redirect=[uri+'error= '])
 
         uri += 'error=' + reason
         return redirect(uri, code=302)
-    return render_template('login.html', errorMessage = "", client_id = context['client_id'], redirect_uri = context['redirect_uri'], state = context['state'])
+    return render_template('login.html', errorMessage = "", client_info = client_info)
 
 @app.route('/credentialsSubmitted', methods=['GET', 'POST'])
 def submit_credentials():
@@ -74,26 +76,27 @@ def submit_credentials():
 
     entered_username = request.form['user']
     entered_password = request.form['passw']
-    redirect_uri = request.form['redirect_uri']
-    state = request.form['state']
-    client_id = request.form['client_id']
+    client_info = json.loads(request.form['client_info'].replace('\'', '"'))
 
     if stored_username == entered_username and stored_password == entered_password:
-        return render_template('auth_page.html', client_id = client_id, redirect_uri = redirect_uri, state = state)
+        scopes = []
+        for scope in client_info['scope'].split(" "):
+            scopes.append(scope_map[scope])
+        return render_template('auth_page.html', client_info = client_info, scopes = scopes)
     else:
-        return render_template('login.html', errorMessage = "Incorrect username or password.", client_id = client_id, redirect_uri = redirect_uri, state = state)
+        return render_template('login.html', errorMessage = "Incorrect username or password.", client_info = client_info)
 
 @app.route('/authorisationSubmitted', methods=['GET', 'POST'])
 def auth_submit():
     authResponse = request.form['auth']
 
-    uri = request.form["redirect_uri"]
+    client_info = json.loads(request.form['client_info'].replace('\'', '"'))
 
     if authResponse == "Cancel":
-        return redirect(uri + '?error=access_denied&state=' + request.form["state"], code=302)
+        return redirect(client_info['redirect_uri'] + '?error=access_denied&state=' + client_info['state'], code=302)
     token = generateToken()
 
-    return redirect(uri + "code=" + token + "&state=" + request.form['state'])
+    return redirect(client_info['redirect_uri'] + 'code=' + token + '&state=' + client_info['state'])
 
 def generateToken():
     return "Greetings"
@@ -154,36 +157,41 @@ def _is_valid_authorize_request(request):
     state = request.args.get('state')
     redirect_uri = request.args.get('redirect_uri')
 
-    context = { 'client_id': client_id, 'redirect_uri': redirect_uri, 'state': state }
+    client_info = { 'client_id': client_id, 'redirect_uri': redirect_uri, 'state': state, 'scope': scope }
 
     if redirect_uri is None or redirect_uri == '':
-        return False, 'no_redirect_uri', context
+        return False, 'no_redirect_uri', client_info
 
     if response_type is None or scope is None or client_id is None or state is None:
-        return False, "invalid_request", context
+        return False, "invalid_request", client_info
     if response_type != 'code':
-        return False, 'unsupported_response_type', context
+        return False, 'unsupported_response_type', client_info
 
     if scope != 'openid':
-        return False, "invalid_scope", context
+        return False, "invalid_scope", client_info
 
-    # TODO: Get client info from redis
-    client_info = _get_client_info(client_id)
+    client_info = _get_client_info(client_info)
 
     if client_info is None:
-        return False, 'unknown_client', context
+        return False, 'unknown_client', client_info
 
-    if redirect_uri != client_info['redirect_uri']:
-        return False, 'invalid_redirect_uri', context
+    if redirect_uri != client_info['registered_redirect_uri']:
+        return False, 'invalid_redirect_uri', client_info
 
-    return True, '', context
+    return True, '', client_info
 
 
-def _get_client_info(client_id):
-    if client_id == "example":
-        return {'client_id': 'example', 'redirect_uri': 'https://client.example.org/cb'}
-    return None
-
+def _get_client_info(client_info):
+    try:
+        client_name = redisclient.hget(client_info['client_id'], 'name')
+        redirect_uri = redisclient.hget(client_info['client_id'], 'redirect_uri')
+        image = redisclient.hget(client_info['client_id'], 'image')
+        client_info['registered_redirect_uri'] = redirect_uri
+        client_info['client_name'] = client_name
+        client_info['image'] = image
+        return client_info
+    except Exception:
+        return None
 
 # Stub method - to be replaced with the proper one that Matt writes
 def get_payload(user_id, client_id):

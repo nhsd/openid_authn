@@ -49,9 +49,7 @@
 							<div class="row">
                                 <p>{{ errorMessage }}</p>
 								<form action="credentialsSubmitted" method="Post" role="form" id="">
-                                    <input type="hidden" name="client_id" value="{{ client_id }}">
-                                    <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
-                                    <input type="hidden" name="state" value="{{ state }}">
+                                    <input type="hidden" name="client_info" value="{{ client_info }}">
 									<div class="row">
 										<div class="form-group col-sm-8">
 											<label class="control-label">Username</label>
