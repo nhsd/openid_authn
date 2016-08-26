@@ -109,7 +109,7 @@ def generate_authorisation_token(client_info):
 @app.route('/token')
 def token_callback():
     authorization_string = request.headers.Authorization
-    decoded_authorization_string = decode_authorization_header(authorization_string)
+    decoded_authorization_string = decode_base64encoded_dict(authorization_string)
 
     client_id = decoded_authorization_string.header.clientID
     secret = decoded_authorization_string.header.secret
@@ -118,16 +118,38 @@ def token_callback():
     code_param = request.args.get('code')
     redirect_uri_param = request.args.get('redirect_uri')
 
-    token = get_token_header() + '.' + get_token()
-
-    encoded_token = encode_token(token)
-    response = {'id_token': encoded_token,
+    token = get_token_header() + '.' + get_payload()
+    response = {'id_token': token,
                 "access_token": "SlAV32hkKG",
                 "token_type": "Bearer",
                 "expires_in": 3600}
 
     json_response = json.dumps(response)
     return json_response
+
+#def is_valid_jwt_header(header):
+#    expected_fields = ['alg', 'twp']
+
+
+def _is_valid_token_payload(payload):
+    expected_fields = ['iss', 'sub', 'aud', 'exp', 'iat']
+    #raw_returned_token = view.get_token('158616253415', '731983621552')
+    decoded_token = base64.b64decode(payload)
+    returned_token = json.loads(decoded_token.decode('utf-8'))
+
+    expected_min_iat_time = int(datetime.now().timestamp()) - 5
+    expected_max_iat_time = expected_min_iat_time + 10
+    expected_min_exp_time = expected_min_iat_time + 600  # Assumes 10 minute token lifetime
+    expected_max_exp_time = expected_min_exp_time + 10
+
+    for field in expected_fields:
+        if field not in returned_token:
+            return False
+    if returned_token['iat'] < expected_min_iat_time or returned_token['iat'] < expected_max_iat_time:
+        return False
+    if returned_token['exp'] < expected_min_exp_time or returned_token['exp'] < expected_max_exp_time:
+        return False
+    return returned_token
 
 
 def _is_valid_authorize_request(request):
@@ -177,24 +199,25 @@ def _get_client_info(client_info):
         return None
 
 # Stub method - to be replaced with the proper one that Matt writes
-def get_token(user_id, client_id):
+def get_payload(user_id, client_id):
     from datetime import datetime
     ret = {'iss': 'https://dummy.co/stuff', 'sub': user_id, 'aud': client_id, 'exp': int(datetime.now().timestamp()) + 600, 'iat': int(datetime.now().timestamp())}
-    return encode_token(json.dumps(ret).encode('utf-8'))
+    return base64encode_dict(ret)
 
 def get_token_header():
-
     header = {"alg": "HS256", "typ": "JWT"}
+    return base64encode_dict(header)
 
-    return encode_token(json.dumps(header))
+def decode_base64encoded_dict(base64encoded_dict):
+    bytes = base64.b64decode(base64encoded_dict)
+    resulting_dict = json.loads(bytes.decode('utf-8'))
+    return resulting_dict
 
-def decode_authorization_header(authorization_string):
-    return base64.b64decode(authorization_string)
+def base64encode_dict(dict):
+    json_dict = json.dumps(dict).encode('utf-8')
+    base64_dict = base64.b64encode(json_dict)
 
-
-def encode_token(token):
-    return base64.b64encode(token)
-
+    return base64_dict
 
 private_key="MIIJKgIBAAKCAgEA0F+DwdopgdLS4g35dLBzjXeWlntEzXWv58fDBN/9lU9fH5ri\
 l+/zaPQ4A4UFBLKTeQMfo5qeEoWRlCnAxvF9WcOn3TafRjVwf7X1T2wDBPPq+7xt\
