@@ -10,6 +10,8 @@ from storage import redisclient
 import hmac
 import hashlib
 import base64
+import socket
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -39,16 +41,7 @@ def log_request():
                 request.headers.environ['SERVER_PROTOCOL'],
                 request.headers.environ['HTTP_USER_AGENT']))
 
-
-@app.route('/test/<param>')
-def test(param):
-    key_name = 'test_value'
-    redisclient.set(key_name, param)
-    persisted_value = redisclient.get(key_name)
-    return "OK %s" % persisted_value
-
-
-@app.route('/authorize')
+@app.route('/authorize', methods=['GET'])
 def login():
     (valid, reason, client_info) = _is_valid_authorize_request(request)
     if not valid:
@@ -63,22 +56,20 @@ def login():
         if reason == 'unknown_client' or reason == 'invalid_redirect_uri':
             return render_template('error.html', \
                 message="You've come from a client we don't recognise so we can't sign you in.", \
-                redirect=[uri+'error= '])
+                redirect=[uri+'error=access_denied'])
 
         uri += 'error=' + reason
         return redirect(uri, code=302)
     return render_template('login.html', errorMessage = "", client_info = client_info)
 
-@app.route('/credentialsSubmitted', methods=['GET', 'POST'])
+@app.route('/authorize', methods=['POST'])
 def submit_credentials():
-    stored_username = redisclient.hget('user:1000', 'username')
-    stored_password = redisclient.hget('user:1000', 'password')
-
-    entered_username = request.form['user']
+    stored_password = redisclient.hget(request.form['user'], 'password')
     entered_password = request.form['passw']
+
     client_info = json.loads(request.form['client_info'].replace('\'', '"'))
 
-    if stored_username == entered_username and stored_password == entered_password:
+    if stored_password == entered_password:
         scopes = []
         for scope in client_info['scope'].split(" "):
             scopes.append(scope_map[scope])
@@ -86,7 +77,7 @@ def submit_credentials():
     else:
         return render_template('login.html', errorMessage = "Incorrect username or password.", client_info = client_info)
 
-@app.route('/authorisationSubmitted', methods=['GET', 'POST'])
+@app.route('/authorisationSubmitted', methods=['POST'])
 def auth_submit():
     authResponse = request.form['auth']
 
@@ -94,12 +85,26 @@ def auth_submit():
 
     if authResponse == "Cancel":
         return redirect(client_info['redirect_uri'] + '?error=access_denied&state=' + client_info['state'], code=302)
-    token = generateToken()
+
+    token = generate_authorisation_token(client_info)
 
     return redirect(client_info['redirect_uri'] + 'code=' + token + '&state=' + client_info['state'])
 
-def generateToken():
-    return "Greetings"
+def generate_authorisation_token(client_info):
+
+    header = { 'alg':'none',
+               'typ':'JWT' }
+
+    time = int(datetime.now().timestamp())
+
+    claims = { 'sub': client_info['client_id'],
+               'iss': socket.gethostname(),
+               'iat': time,
+               'exp': time + 30,
+               'amr': 'password' }
+
+    return encode_token(json.dumps(header).encode('utf-8')) + '.' + \
+           encode_token(json.dumps(claims).encode('utf-8')) + '.'
 
 @app.route('/token')
 def token_callback():
