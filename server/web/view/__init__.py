@@ -27,7 +27,7 @@ redisclient(redis_ip, redis_port)
 
 log = logging.getLogger('view')
 
-scope_map = { "openid": "Use your login details", "email": "View your email address" }
+scope_map = { "openid": "Use your NHS login to sign you in", "email": "View your email address" }
 
 @app.before_request
 def log_request():
