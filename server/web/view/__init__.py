@@ -7,7 +7,6 @@ import os, requests
 from functools import wraps
 import logging
 from storage import redisclient
-import hmac
 import hashlib
 import base64
 
@@ -25,7 +24,7 @@ redisclient(redis_ip, redis_port)
 
 log = logging.getLogger('view')
 
-scope_map = { "openid": "log you into their application" }
+scope_map = {"openid": "log you into their application"}
 
 
 @app.before_request
@@ -54,7 +53,7 @@ def login():
     if not valid:
         if reason == 'no_redirect_uri':
             return render_template('error.html', \
-                message="The client you have come from is not properly configured. Please go back.")
+                                   message="The client you have come from is not properly configured. Please go back.")
 
         uri = client_info['redirect_uri'] + '?'
         if client_info['state'] is not None:
@@ -62,12 +61,13 @@ def login():
 
         if reason == 'unknown_client' or reason == 'invalid_redirect_uri':
             return render_template('error.html', \
-                message="You've come from a client we don't recognise so we can't sign you in.", \
-                redirect=[uri+'error= '])
+                                   message="You've come from a client we don't recognise so we can't sign you in.", \
+                                   redirect=[uri + 'error= '])
 
         uri += 'error=' + reason
         return redirect(uri, code=302)
-    return render_template('login.html', errorMessage = "", client_info = client_info)
+    return render_template('login.html', errorMessage="", client_info=client_info)
+
 
 @app.route('/credentialsSubmitted', methods=['GET', 'POST'])
 def submit_credentials():
@@ -82,9 +82,10 @@ def submit_credentials():
         scopes = []
         for scope in client_info['scope'].split(" "):
             scopes.append(scope_map[scope])
-        return render_template('auth_page.html', client_info = client_info, scopes = scopes)
+        return render_template('auth_page.html', client_info=client_info, scopes=scopes)
     else:
-        return render_template('login.html', errorMessage = "Incorrect username or password.", client_info = client_info)
+        return render_template('login.html', errorMessage="Incorrect username or password.", client_info=client_info)
+
 
 @app.route('/authorisationSubmitted', methods=['GET', 'POST'])
 def auth_submit():
@@ -98,11 +99,16 @@ def auth_submit():
 
     return redirect(client_info['redirect_uri'] + 'code=' + token + '&state=' + client_info['state'])
 
+
 def generateToken():
     return "Greetings"
 
+
 @app.route('/token')
 def token_callback():
+    if _is_valid_token_request(request) == False:
+        return requests.Response.raise_for_status()
+
     authorization_string = request.headers.Authorization
     decoded_authorization_string = decode_base64encoded_dict(authorization_string)
 
@@ -113,7 +119,12 @@ def token_callback():
     code_param = request.args.get('code')
     redirect_uri_param = request.args.get('redirect_uri')
 
-    token = get_token_header() + '.' + get_payload()
+    payload = get_payload()
+
+    if _is_valid_token_payload(payload) == False:
+        return requests.Response.raise_for_status()
+
+    token = get_token_header() + '.' + payload
     response = {'id_token': token,
                 "access_token": "SlAV32hkKG",
                 "token_type": "Bearer",
@@ -122,13 +133,13 @@ def token_callback():
     json_response = json.dumps(response)
     return json_response
 
-#def is_valid_jwt_header(header):
+# def is_valid_jwt_header(header):
 #    expected_fields = ['alg', 'twp']
 
 
 def _is_valid_token_payload(payload):
     expected_fields = ['iss', 'sub', 'aud', 'exp', 'iat']
-    #raw_returned_token = view.get_token('158616253415', '731983621552')
+    # raw_returned_token = view.get_token('158616253415', '731983621552')
     decoded_token = base64.b64decode(payload)
     returned_token = json.loads(decoded_token.decode('utf-8'))
 
@@ -146,6 +157,36 @@ def _is_valid_token_payload(payload):
         return False
     return returned_token
 
+def _is_valid_token_request(request):
+
+    if len(request.headers) != 3:
+        return False, "3 Headers expected (Host, Content-Type and Authorization)"
+
+    if len(request.args) != 3:
+        return False, "3 Requests params expected (grant_type, code and redirect_uri)"
+
+    content_type = request.headers['Content-Type']
+    authorization_header = request.headers['Authorization']
+
+    grant_type = request.args.get('grant_type')
+    code = request.args.get('code')
+    redirect_uri = request.args.get('redirect_uri')
+
+    if grant_type is None or grant_type != 'authorization_code':
+        return False, " grant_type must be authorization_code"
+
+    if code is None:
+        return False, "code param must be supplied"
+
+    if redirect_uri is None or redirect_uri == '':
+        return False, 'no_redirect_uri'
+
+    if content_type is None or content_type != 'application/x-www-form-urlencoded':
+        return False, 'content type must be application/x-www-form-urlencoded'
+
+    if authorization_header is None:
+        return False, 'authorizatoin header expected'
+
 
 def _is_valid_authorize_request(request):
     if len(request.args) > 5:
@@ -157,7 +198,7 @@ def _is_valid_authorize_request(request):
     state = request.args.get('state')
     redirect_uri = request.args.get('redirect_uri')
 
-    client_info = { 'client_id': client_id, 'redirect_uri': redirect_uri, 'state': state, 'scope': scope }
+    client_info = {'client_id': client_id, 'redirect_uri': redirect_uri, 'state': state, 'scope': scope}
 
     if redirect_uri is None or redirect_uri == '':
         return False, 'no_redirect_uri', client_info
@@ -193,20 +234,30 @@ def _get_client_info(client_info):
     except Exception:
         return None
 
+
 # Stub method - to be replaced with the proper one that Matt writes
 def get_payload(user_id, client_id):
     from datetime import datetime
-    ret = {'iss': 'https://dummy.co/stuff', 'sub': user_id, 'aud': client_id, 'exp': int(datetime.now().timestamp()) + 600, 'iat': int(datetime.now().timestamp())}
+    ret = {'iss': 'https://dummy.co/stuff', 'sub': user_id, 'aud': client_id,
+           'exp': int(datetime.now().timestamp()) + 600, 'iat': int(datetime.now().timestamp())}
     return base64encode_dict(ret)
+
+def sign_token(token):
+    hash_object = hashlib.sha256(token)
+
+    #signature = RSAkey.sign(hash_object, private_key)
+    return token #+ '.' + signature
 
 def get_token_header():
     header = {"alg": "HS256", "typ": "JWT"}
     return base64encode_dict(header)
 
+
 def decode_base64encoded_dict(base64encoded_dict):
     bytes = base64.b64decode(base64encoded_dict)
     resulting_dict = json.loads(bytes.decode('utf-8'))
     return resulting_dict
+
 
 def base64encode_dict(dict):
     json_dict = json.dumps(dict).encode('utf-8')
@@ -214,7 +265,8 @@ def base64encode_dict(dict):
 
     return base64_dict
 
-private_key="MIIJKgIBAAKCAgEA0F+DwdopgdLS4g35dLBzjXeWlntEzXWv58fDBN/9lU9fH5ri\
+
+private_key = "MIIJKgIBAAKCAgEA0F+DwdopgdLS4g35dLBzjXeWlntEzXWv58fDBN/9lU9fH5ri\
 l+/zaPQ4A4UFBLKTeQMfo5qeEoWRlCnAxvF9WcOn3TafRjVwf7X1T2wDBPPq+7xt\
 88H7XvbAySvg0mv1+EFKT7rWIZ1bwAZ+dFFCN/p5ggR+mOhQXFpMi/S2+AqhYe/J\
 A/BUKfmKjUBvhig8mdNGcV2M8a15IY8R+lysyUWZAYtZhs3bxoSVGzH8ssXapa/x\
