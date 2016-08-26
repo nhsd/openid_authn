@@ -92,18 +92,20 @@ def auth_submit():
 
 def generate_authorisation_token(client_info):
 
-    header = { 'alg':'none',
-               'typ':'JWT' }
+    header = { "alg":"none",
+               "typ":"JWT" }
 
     time = int(datetime.now().timestamp())
 
-    claims = { 'sub': client_info['client_id'],
-               'iss': socket.gethostname(),
-               'iat': time,
-               'exp': time + 30,
-               'amr': 'password' }
+    claims = { "sub": client_info['client_id'],
+               "iss": socket.gethostname(),
+               "iat": time,
+               "exp": time + 30,
+               "amr": "password" }
 
-    return base64encode_dict(header) + '.' + base64encode_dict(claims) + '.'
+    token = base64encode_dict(header).decode('utf-8') + '.' + base64encode_dict(claims).decode('utf-8') + '.'
+
+    return token
 
 @app.route('/token')
 def token_callback():
