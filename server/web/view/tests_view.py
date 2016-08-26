@@ -183,3 +183,27 @@ class tests_view(unittest.TestCase):
         self.assertLessEqual(len(returned_token['sub']), 255, 'SUB field has a length that is more than the valid length of 255 characters')
 
         self.assertTrue(str(returned_token['iss']).startswith('https://'), 'ISS field does not have the expected \'https://\' prefix')
+
+    def test__view__decode_base64encoded_dict__whenCalledWithAValidBase64EncodedDict__returnsAValidDict(self):
+
+        base64_dict = 'eyJzdWIiOiJhbGljZSIsImlzcyI6Imh0dHBzOi8vb3BlbmlkLmMyaWQuY29tIiwiYXVkIjoiY2xpZW50LTEyMzQ1Iiwibm9uY2UiOiJuLTBTNl9XekEyTWoiLCJhdXRoX3RpbWUiOjEzMTEyODA5NjksImFjciI6ImMyaWQubG9hLmhpc2VjIiwiaWF0IjoxMzExMjgwOTcwLCJleHAiOjEzMTEyODE5NzB9'
+        expected_fields = ['iss', 'sub', 'aud', 'exp', 'iat']
+        decoded_dict = view.decode_base64encoded_dict(base64_dict)
+
+        for field in expected_fields:
+            self.assertTrue(field in decoded_dict,
+                            'Field \'%s\' does not exist in the returned token %s' % (field, base64_dict))
+
+    def test__view_base64encode_dict__whenCalledWithAValidDict__returnsAValidBase64EncodedDict(self):
+
+        dict = {'sub': 'alice', 'iss': 'https://openid.c2id.com', 'aud': 'client-12345', 'nonce': 'n-0S6_WzA2Mj', 'auth_time': 1311280969, 'acr': 'c2id.loa.hisec', 'iat': 1311280970, 'exp': 1311281970}
+
+        #encode and decode dict
+        encoded_dict = view.base64encode_dict(dict)
+        decoded_dict = view.decode_base64encoded_dict(encoded_dict)
+
+        #expected base64 from dict
+        expected_encoded_dict_string = 'eyJpc3MiOiAiaHR0cHM6Ly9vcGVuaWQuYzJpZC5jb20iLCAiaWF0IjogMTMxMTI4MDk3MCwgImFjciI6ICJjMmlkLmxvYS5oaXNlYyIsICJzdWIiOiAiYWxpY2UiLCAibm9uY2UiOiAibi0wUzZfV3pBMk1qIiwgImF1dGhfdGltZSI6IDEzMTEyODA5NjksICJhdWQiOiAiY2xpZW50LTEyMzQ1IiwgImV4cCI6IDEzMTEyODE5NzB9'
+        expected_decoded_dict = view.decode_base64encoded_dict(expected_encoded_dict_string)
+
+        self.assertEqual(expected_decoded_dict, decoded_dict)
