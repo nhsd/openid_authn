@@ -159,9 +159,9 @@ class tests_view(unittest.TestCase):
         response = self.app.get('authorize', query_string=data,
                                 environ_base={'REMOTE_ADDR': 'ex', 'HTTP_USER_AGENT': 'ex'})
 
-    def test__view__get_token__whenCalled__returnsAValidJWTWithValidValues(self):
+    def test__view__get_payload__whenCalled__returnsAValidJWTWithValidValues(self):
         expected_fields = ['iss', 'sub', 'aud', 'exp', 'iat']
-        raw_returned_token = view.get_token('158616253415', '731983621552')
+        raw_returned_token = view.get_payload('158616253415', '731983621552')
         decoded_token = base64.b64decode(raw_returned_token)
         returned_token = json.loads(decoded_token.decode('utf-8'))
 
