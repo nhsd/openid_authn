@@ -128,7 +128,13 @@ def token_callback():
 
     (valid, reason, data) = _is_valid_token_request(request)
     if not valid:
-        return 'ERROR'
+        resp = Response('{"error": "' + reason + '"}')
+        resp.headers['Content-Type'] = 'application/json'
+        resp.headers['Cache-Control'] = 'no-store'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.status_code = 400
+
+        return resp
 
     (valid, reason) = _is_valid_token_payload(data['claims'])
     if not valid:
@@ -182,37 +188,47 @@ def _is_valid_token_payload(payload):
     return True, None
 
 
+def _get_client_credentials(header):
+    try:
+        encoded_credentials = header.split('Basic ')[1]
+        credentials = base64.b64decode(encoded_credentials).decode('utf-8').split(':')
+        return credentials
+    except:
+        return [None, None]
+
 def _is_valid_token_request(request):
 
-    print(len(request.args))
+    content_type = request.headers['Content-Type']
+    if content_type is None or content_type != 'application/x-www-form-urlencoded':
+        return False, 'invalid_request', None
+
+    authorization_header = request.headers['Authorization']
+    if authorization_header is None:
+        return False, 'invalid_request', None
+
+    [client_id, client_secret] = _get_client_credentials(authorization_header)
+    if client_id is None or client_secret is None:
+        return False, "invalid_client", None
 
     if len(request.args) != 3:
-        return False, "3 Requests params expected (grant_type, code and redirect_uri)", None
-
-    content_type = request.headers['Content-Type']
-    authorization_header = request.headers['Authorization'].split('Basic ')[1]
-
-    [client_id, client_secret] = base64.b64decode(authorization_header).decode('utf-8').split(':')
+        return False, "invalid_request", None
 
     grant_type = request.args.get('grant_type')
     code = request.args.get('code')
     redirect_uri = request.args.get('redirect_uri')
 
-    if grant_type is None or grant_type != 'authorization_code':
-        return False, " grant_type must be authorization_code", None
+    if grant_type is None or code is None or redirect_uri is None:
+        return False, 'invalid_request', None
 
-    if code is None:
-        return False, "code param must be supplied", None
+    if grant_type != 'authorization_code':
+        return False, 'unsupported_grant_type', None
 
     (valid_code, claims) = validate_code(code)
     if not valid_code:
-        return False, "invalid code", None
+        return False, "invalid_grant", None
 
     if redirect_uri is None or redirect_uri == '':
         return False, 'no_redirect_uri', None
-
-    if content_type is None or content_type != 'application/x-www-form-urlencoded':
-        return False, 'content type must be application/x-www-form-urlencoded', None
 
     if authorization_header is None:
         return False, 'authorization header expected', None
@@ -221,8 +237,9 @@ def _is_valid_token_request(request):
 
 
 def validate_code(code):
-    claims = jwt.decode(code, secret, algorithms=['HS256'], audience=socket.gethostname())
-    if claims is None:
+    try:
+        claims = jwt.decode(code, secret, algorithms=['HS256'], audience=socket.gethostname())
+    except:
         return False, None
     return True, claims
 
