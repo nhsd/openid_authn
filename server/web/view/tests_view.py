@@ -19,7 +19,7 @@ class tests_view(unittest.TestCase):
         super(tests_view, self).__init__(*args, **kwargs)
 
 
-    def test__view__login__whenCalledWithNoResponseType_willRedurectWithInvalidRequest(self):
+    def test__view__login__whenCalledWithNoResponseType_willRedirectWithInvalidRequest(self):
 
         data = {
             'scope': 'openid',
@@ -153,3 +153,22 @@ class tests_view(unittest.TestCase):
         response = self.app.get('authorize', query_string=data,
                                 environ_base={'REMOTE_ADDR': 'ex', 'HTTP_USER_AGENT': 'ex'})
 
+    def test__view__token_callback__whenCalledwithInvalidRequest_WillRedirectwithReason(self):
+        query_params = {
+            'grant_type': '',
+            'code': '',
+            'redirect_uri': '',
+            }
+        headers = {
+            'Content': '',
+            'Authorization': ''
+        }
+
+        response = self.app.post('token', query_string=query_params,
+                                environ_base={'REMOTE_ADDR': 'ex', 'HTTP_USER_AGENT': 'ex'}, headers=headers)
+
+        #p = urlparse(response.location)
+        #args = parse_qs(p.query)
+
+        #self.assertTrue(len(args.get('error')[0]) > 0)
+        self.assertEqual(response.status_code, 400)
