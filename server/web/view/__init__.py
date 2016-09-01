@@ -165,18 +165,6 @@ def generate_authorisation_token(client_info):
 
 @app.route('/token', methods=['POST'])
 def token_callback():
-    # if not _is_valid_token_request(request):
-    #    return requests.Response.raise_for_status()
-
-    # authorization_string = request.headers.Authorization
-    # decoded_authorization_string = decode_base64encoded_dict(authorization_string)
-    #
-    # client_id = decoded_authorization_string.header.clientID
-    # secret = decoded_authorization_string.header.secret
-
-    grant_type_param = request.args.get('grant_type')
-    code_param = request.args.get('code')
-    redirect_uri_param = request.args.get('redirect_uri')
 
     (valid, reason, data) = _is_valid_token_request(request)
     if not valid:
@@ -252,38 +240,38 @@ def _get_client_credentials(header):
 def _is_valid_token_request(request):
     content_type = request.headers['Content-Type']
     if content_type is None or content_type != 'application/x-www-form-urlencoded':
-        return False, 'invalid_request', None
+        return False, 'invalid_content_type', None
 
     authorization_header = request.headers['Authorization']
+
     if authorization_header is None:
-        return False, 'invalid_request', None
+        return False, 'authorization header expected', None
+
 
     [client_id, client_secret] = _get_client_credentials(authorization_header)
     if client_id is None or client_secret is None:
         return False, "invalid_client", None
 
     if len(request.args) != 3:
-        return False, "invalid_request", None
+        return False, "invalid_request_args", None
 
     grant_type = request.args.get('grant_type')
     code = request.args.get('code')
     redirect_uri = request.args.get('redirect_uri')
 
-    if grant_type is None or code is None or redirect_uri is None:
-        return False, 'invalid_request', None
-
-    if grant_type != 'authorization_code':
+    if grant_type is None or grant_type != 'authorization_code':
         return False, 'unsupported_grant_type', None
+
+    if code is None:
+        return False, "invalid_code", None
 
     (valid_code, claims) = validate_code(code)
     if not valid_code:
-        return False, "invalid_grant", None
+        return False, "invalid_code", None
 
     if redirect_uri is None or redirect_uri == '':
         return False, 'no_redirect_uri', None
 
-    if authorization_header is None:
-        return False, 'authorization header expected', None
 
     return True, None, {'client_id': client_id, 'client_secret': client_secret, 'claims': claims,
                         'redirect_uri': redirect_uri}
@@ -317,6 +305,7 @@ def _is_valid_registration_request(request):
         return True, None, data
     except:
         return False, 'Invalid Request', None
+
 
 def _is_valid_authorize_request(request):
     if len(request.args) > 5:
