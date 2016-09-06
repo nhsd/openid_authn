@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>{377B666F-A041-4628-8A2E-E6D0B8B7B44B}</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>webview</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)webview.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)WebPage.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ButtonPage.cs" />
+  </ItemGroup>
+</Project>
