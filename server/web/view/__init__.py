@@ -23,8 +23,8 @@ redisclient(redis_ip, redis_port)
 
 log = logging.getLogger('view')
 
-scope_map = { "openid": "Use your NHS login to sign you in",
-              "email": "View your email address" }
+scope_map = {"openid": "Use your NHS login to sign you in",
+             "email": "View your email address"}
 
 
 @app.before_request
@@ -37,6 +37,58 @@ def log_request():
                 request.headers.environ['REQUEST_METHOD'],
                 request.headers.environ['SERVER_PROTOCOL'],
                 request.headers.environ['HTTP_USER_AGENT']))
+
+
+@app.route('/client-reg', methods=['POST'])
+def registration():
+
+    (valid, reason, data) = _is_valid_registration_request(request)
+    if not valid:
+       if reason == 'Invalid Request':
+            return render_template('error.html', \
+                              message="The client registration request is not valid json. Please try again.")
+       if reason == 'no_client_name':
+           return render_template('error.html', \
+                              message="The client registration request had no client name. Please try again.")
+       if reason == 'no_redirect_uris':
+            return render_template('error.html', \
+                              message="The client registration request had no redirect uris. Please try again.")
+
+    time = int(datetime.now().timestamp())
+
+    client_id = _generate_random_alpha_numeric(10)
+    redirect_uris = data['redirect_uris']
+    client_name = data['client_name']
+    logo_uri = data['logo_uri']
+    client_secret = _generate_random_alpha_numeric(32)
+    client_secret_expires_at = time + (60 * 60 * 24)
+
+    redisclient.hset(client_id, 'redirect_uris', redirect_uris)
+    redisclient.hset(client_id, 'name', client_name)
+    redisclient.hset(client_id, 'image', logo_uri)
+    redisclient.hset(client_id, 'client_secret', client_secret)
+    redisclient.hset(client_id, 'client_secret_expires_at', client_secret_expires_at)
+
+    response = {'client_id': client_id,
+                'client_secret': client_secret,
+                'client_secret_expires_at': client_secret_expires_at,
+                'client_name': client_name,
+                'logo_uri': logo_uri,
+                'application_type': 'web',
+                'grant_types': ['authorization_code'],
+                'response_types': ['code'],
+                'redirect_uris': redirect_uris,
+                'token_endpoint_auth_method': 'client_secret_basic',
+                'id_token_signed_response_alg': 'HS256',
+                'subject_type': 'public'}
+
+    json_response = json.dumps(response)
+    resp = Response(json_response)
+    resp.headers['Content-Type'] = 'application/json'
+    resp.headers['Cache-control'] = 'no-store'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.status_code = 200
+    return resp
 
 
 @app.route('/authorize', methods=['GET'])
@@ -73,7 +125,7 @@ def submit_credentials():
         scopes = []
         for scope in client_info['scope'].split(" "):
             scopes.append(scope_map[scope])
-        return render_template('auth_page.html', client_info = client_info, scopes = scopes, user_id = request.form['user'])
+        return render_template('auth_page.html', client_info=client_info, scopes=scopes, user_id=request.form['user'])
     else:
         return render_template('login.html', errorMessage="Incorrect username or password.", client_info=client_info)
 
@@ -91,11 +143,11 @@ def auth_submit():
 
     return redirect(client_info['redirect_uri'] + '?code=' + token + '&state=' + client_info['state'])
 
+
 secret = 'fd2q9VmSZZW2QKz5PhLP'
 
 
 def generate_authorisation_token(client_info):
-
     time = int(datetime.now().timestamp())
 
     claims = {"sub": client_info['sub'],
@@ -113,18 +165,6 @@ def generate_authorisation_token(client_info):
 
 @app.route('/token', methods=['POST'])
 def token_callback():
-    #if not _is_valid_token_request(request):
-    #    return requests.Response.raise_for_status()
-
-    # authorization_string = request.headers.Authorization
-    # decoded_authorization_string = decode_base64encoded_dict(authorization_string)
-    #
-    # client_id = decoded_authorization_string.header.clientID
-    # secret = decoded_authorization_string.header.secret
-
-    grant_type_param = request.args.get('grant_type')
-    code_param = request.args.get('code')
-    redirect_uri_param = request.args.get('redirect_uri')
 
     (valid, reason, data) = _is_valid_token_request(request)
     if not valid:
@@ -142,13 +182,13 @@ def token_callback():
         return requests.Response.raise_for_status()
 
     time = int(datetime.now().timestamp())
-    claims = { 'sub': data['client_id'],
-               'iss': socket.gethostname(),
-               'aud': data['client_id'],
-               'jti': '3utwh54n9',
-               'iat': time,
-               'amr': data['claims']['amr'], #TODO: standards?
-               'exp': time + 600 }
+    claims = {'sub': data['client_id'],
+              'iss': socket.gethostname(),
+              'aud': data['client_id'],
+              'jti': '3utwh54n9',
+              'iat': time,
+              'amr': data['claims']['amr'],  # TODO: standards?
+              'exp': time + 600}
 
     token = jwt.encode(claims, secret, algorithm='HS256')
 
@@ -196,44 +236,45 @@ def _get_client_credentials(header):
     except:
         return [None, None]
 
-def _is_valid_token_request(request):
 
+def _is_valid_token_request(request):
     content_type = request.headers['Content-Type']
     if content_type is None or content_type != 'application/x-www-form-urlencoded':
-        return False, 'invalid_request', None
+        return False, 'invalid_content_type', None
 
     authorization_header = request.headers['Authorization']
+
     if authorization_header is None:
-        return False, 'invalid_request', None
+        return False, 'authorization header expected', None
+
 
     [client_id, client_secret] = _get_client_credentials(authorization_header)
     if client_id is None or client_secret is None:
         return False, "invalid_client", None
 
     if len(request.args) != 3:
-        return False, "invalid_request", None
+        return False, "invalid_request_args", None
 
     grant_type = request.args.get('grant_type')
     code = request.args.get('code')
     redirect_uri = request.args.get('redirect_uri')
 
-    if grant_type is None or code is None or redirect_uri is None:
-        return False, 'invalid_request', None
-
-    if grant_type != 'authorization_code':
+    if grant_type is None or grant_type != 'authorization_code':
         return False, 'unsupported_grant_type', None
+
+    if code is None:
+        return False, "invalid_code", None
 
     (valid_code, claims) = validate_code(code)
     if not valid_code:
-        return False, "invalid_grant", None
+        return False, "invalid_code", None
 
     if redirect_uri is None or redirect_uri == '':
         return False, 'no_redirect_uri', None
 
-    if authorization_header is None:
-        return False, 'authorization header expected', None
 
-    return True, None, { 'client_id': client_id, 'client_secret': client_secret, 'claims': claims, 'redirect_uri': redirect_uri }
+    return True, None, {'client_id': client_id, 'client_secret': client_secret, 'claims': claims,
+                        'redirect_uri': redirect_uri}
 
 
 def validate_code(code):
@@ -242,6 +283,28 @@ def validate_code(code):
     except:
         return False, None
     return True, claims
+
+
+def _is_valid_registration_request(request):
+
+    content_type = request.headers['Content-Type']
+    if content_type is None or content_type != 'application/json':
+        return False, 'Invalid Request', None
+
+    data = request.json
+    try:
+        client_name = data['client_name']
+        redirect_uris = data['redirect_uris']
+
+        if client_name is None or client_name == '':
+            return False, 'no_client_name', data
+
+        if redirect_uris is None:
+            return False, 'no_redirect_uris', data
+
+        return True, None, data
+    except:
+        return False, 'Invalid Request', None
 
 
 def _is_valid_authorize_request(request):
@@ -275,7 +338,8 @@ def _is_valid_authorize_request(request):
     if client_info is None:
         return False, 'unknown_client', client_info
 
-    if redirect_uri != client_info['registered_redirect_uris']:
+
+    if redirect_uri not in client_info['registered_redirect_uris']:
         return False, 'invalid_redirect_uri', client_info
     
     return True, '', client_info
@@ -284,7 +348,7 @@ def _is_valid_authorize_request(request):
 def _get_client_info(client_info):
     try:
         client_name = redisclient.hget(client_info['client_id'], 'name')
-        redirect_uris = redisclient.hget(client_info['client_id'], 'redirect_uris')
+        redirect_uris = eval(redisclient.hget(client_info['client_id'], 'redirect_uris'))
         image = redisclient.hget(client_info['client_id'], 'image')
 
         client_info['registered_redirect_uris'] = redirect_uris
@@ -296,3 +360,7 @@ def _get_client_info(client_info):
         return client_info
     except Exception:
         return None
+
+
+def _generate_random_alpha_numeric(length):
+    return ''.join(random.choice('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') for i in range(length))
