@@ -68,7 +68,7 @@ def submit_credentials():
     print(request.form['client_info'])
 
     client_info = json.loads(request.form['client_info'].replace('\'', '"'))
-
+    client_info['sub'] = request.form['user']
     if stored_password == entered_password:
         scopes = []
         for scope in client_info['scope'].split(" "):
@@ -98,11 +98,11 @@ def generate_authorisation_token(client_info):
 
     time = int(datetime.now().timestamp())
 
-    claims = {"sub": client_info['client_id'],
+    claims = {"sub": client_info['sub'],
               "iss": socket.gethostname(),
               "iat": time,
               'aud': socket.gethostname(),
-              "exp": time + 30,
+              "exp": time + 300,
               "scp": client_info['scope'],
               "amr": "password"}
 
@@ -275,19 +275,19 @@ def _is_valid_authorize_request(request):
     if client_info is None:
         return False, 'unknown_client', client_info
 
-    if redirect_uri != client_info['registered_redirect_uri']:
+    if redirect_uri != client_info['registered_redirect_uris']:
         return False, 'invalid_redirect_uri', client_info
-
+    
     return True, '', client_info
 
 
 def _get_client_info(client_info):
     try:
         client_name = redisclient.hget(client_info['client_id'], 'name')
-        redirect_uri = redisclient.hget(client_info['client_id'], 'redirect_uri')
+        redirect_uris = redisclient.hget(client_info['client_id'], 'redirect_uris')
         image = redisclient.hget(client_info['client_id'], 'image')
 
-        client_info['registered_redirect_uri'] = redirect_uri
+        client_info['registered_redirect_uris'] = redirect_uris
         client_info['client_name'] = client_name
 
         if image is not None:
