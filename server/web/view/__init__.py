@@ -8,6 +8,8 @@ import base64
 import socket
 from datetime import datetime
 from jose import jwt
+import qrcode
+from io import BytesIO
 
 app = Flask(__name__)
 
@@ -364,3 +366,86 @@ def _get_client_info(client_info):
 
 def _generate_random_alpha_numeric(length):
     return ''.join(random.choice('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') for i in range(length))
+
+
+@app.route('/devices', methods=['GET'])
+def list_devices():
+    return render_template("devicelist.html")
+
+
+@app.route('/adddevice', methods=['POST'])
+def add_device():
+
+    time = int(datetime.now().timestamp())
+
+    claims = {'sub': "x",
+              'iss': socket.gethostname(),
+              'aud': [ "cismobile", socket.gethostname() ],
+              'jti': '3utwh54n9',
+              'iat': time,
+              'exp': time + 30}
+
+    jot = jwt.encode(claims, secret, "HS256")
+
+    img = qrcode.make(jot)
+
+    output = BytesIO()
+    img.save(output, format="JPEG")
+    output.flush()
+
+    output.seek(0)
+
+    result = base64.b64encode(output.getvalue()).decode('ascii')
+
+    return render_template("qr_code.html", result = result)
+
+# POST /client-reg HTTP/1.1
+# Host: server.c2id.com
+# Authorization: Bearer ztucZS1ZyFKgh0tUEruUtiSTXhnexmd6
+# Content-Type: application/json
+#
+# {
+#  "redirect_uris" : [ "https://client.example.org/callback" ],
+#  "client_name"   : "My Cool App",
+#  "logo_uri"      : "https://client.example.org/logo.png"
+# }
+#
+@app.route('/client-reg2', methods=['POST'])
+def client_ref():
+
+    body = {
+        "client_id": "s6BhdRkqt3",
+        "client_secret": "JBGuX8sIsPhL2aiHtdo_rb8JIMyTjHkLgfVB_zYf2NQ",
+        "client_secret_expires_at": 1577858400,
+        "registration_access_token": "SQvs1wv1NcAgsZomWWif0d9SDO0GKHYrUN6YR0ocmN0",
+        "registration_client_uri": "http://localhost:5000/client-reg/s6BhdRkqt3",
+        "client_name": "My Cool App",
+        "logo_uri": "https://client.example.org/logo.png",
+        "application_type": "mobile",
+        "grant_types": ["authorization_code"],
+        "response_types": ["code"],
+        "redirect_uris": ["https://client.example.org/callback"],
+        "token_endpoint_auth_method": "client_secret_basic",
+        "id_token_signed_response_alg": "RS256",
+        "subject_type": "public"
+    }
+    json_response = json.dumps(body)
+
+    resp = Response(json_response)
+    resp.headers['Content-Type'] = 'application/json'
+    resp.headers['Cache-Control'] = 'no-cache, no-store'
+    resp.headers['Pragma'] = 'no-cache'
+
+    return resp
+
+@app.route('/terminal', methods=['GET'])
+def terminal():
+
+    return render_template('terminal.html')
+
+@app.route('/terminal-login', methods=['POST'])
+def terminal_login():
+    return 'hello'
+
+
+

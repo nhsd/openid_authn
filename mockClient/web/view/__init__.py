@@ -11,30 +11,26 @@ from jose import jwt
 
 app = Flask(__name__)
 
-if 'REDIS_PORT' in os.environ:
-    redis_addr = os.environ['REDIS_PORT']
-else:
-    redis_addr = 'tcp://localhost:6379'
-
-redis_port = redis_addr.split(':')[2]
-redis_ip = redis_addr.split('//')[1].split(':')[0]
-
-redisclient(redis_ip, redis_port)
-
 log = logging.getLogger('view')
-
-scope_map = { "openid": "Use your NHS login to sign you in",
-              "email": "View your email address" }
 
 @app.route('/', methods=['GET'])
 def submit_credentials():
+    
     return render_template('auth_page.html')
+
+@app.route('/beginlogin', methods=['GET'])
+def auto_redirect():
+   print("Hit auto_redirect()") 
+   return redirect("http://localhost:5000/authorize?response_type=code&scope=openid&client_id=s6BhdRKgt3&state=1234&redirect_uri=http%3A%2F%2F192.168.1.6:5001%2Fauth", code=302)
+
+secret = 'fd2q9VmSZZW2QKz5PhLP'
 
 @app.route('/auth', methods=['GET', 'POST'])
 def intermediary():
     code = request.args.get('code')
-    return render_template('code.html', code=code)
+    
+    claims = jwt.decode(code, secret, algorithms=['HS256'], audience='AlistairLaptop')
 
+    user = claims['sub']
 
-
-
+    return render_template('code.html', code=user)
