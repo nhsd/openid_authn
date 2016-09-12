@@ -113,6 +113,9 @@ def login():
         return redirect(uri, code=302)
     return render_template('login.html', errorMessage="", client_info=client_info)
 
+@app.route('/authorise', methods=['GET'])
+def authorisss():
+    return redirect('https://www.google.com')
 
 @app.route('/authorize', methods=['POST'])
 def submit_credentials():
@@ -399,17 +402,6 @@ def add_device():
 
     return render_template("qr_code.html", result = result)
 
-# POST /client-reg HTTP/1.1
-# Host: server.c2id.com
-# Authorization: Bearer ztucZS1ZyFKgh0tUEruUtiSTXhnexmd6
-# Content-Type: application/json
-#
-# {
-#  "redirect_uris" : [ "https://client.example.org/callback" ],
-#  "client_name"   : "My Cool App",
-#  "logo_uri"      : "https://client.example.org/logo.png"
-# }
-#
 @app.route('/client-reg2', methods=['POST'])
 def client_ref():
 
