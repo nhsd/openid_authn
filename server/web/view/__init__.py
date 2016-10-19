@@ -289,7 +289,6 @@ def validate_code(code):
         return False, None
     return True, claims
 
-
 def _is_valid_registration_request(request):
 
     content_type = request.headers['Content-Type']
@@ -324,28 +323,28 @@ def _is_valid_authorize_request(request):
 
     client_info = {'client_id': client_id, 'redirect_uri': redirect_uri, 'state': state, 'scope': scope}
 
-    if redirect_uri is None or redirect_uri == '':
-        return False, 'no_redirect_uri', client_info
-
-    if response_type is None or scope is None or client_id is None or state is None:
-        return False, "invalid_request", client_info
-    if response_type != 'code':
-        return False, 'unsupported_response_type', client_info
-
-    valid_scopes = ['openid', 'email']
-    scopes = scope.split(' ')
-    for scope in scopes:
-        if scope not in valid_scopes:
-            return False, "invalid_scope", client_info
-
-    client_info = _get_client_info(client_info)
-
-    if client_info is None:
-        return False, 'unknown_client', client_info
-
-
-    if redirect_uri not in client_info['registered_redirect_uris']:
-        return False, 'invalid_redirect_uri', client_info
+    # if redirect_uri is None or redirect_uri == '':
+    #     return False, 'no_redirect_uri', client_info
+    #
+    # if response_type is None or scope is None or client_id is None or state is None:
+    #     return False, "invalid_request", client_info
+    # if response_type != 'code':
+    #     return False, 'unsupported_response_type', client_info
+    #
+    # valid_scopes = ['openid', 'email']
+    # scopes = scope.split(' ')
+    # for scope in scopes:
+    #     if scope not in valid_scopes:
+    #         return False, "invalid_scope", client_info
+    #
+    # client_info = _get_client_info(client_info)
+    #
+    # if client_info is None:
+    #     return False, 'unknown_client', client_info
+    #
+    #
+    # if redirect_uri not in client_info['registered_redirect_uris']:
+    #     return False, 'invalid_redirect_uri', client_info
     
     return True, '', client_info
 
