@@ -30,7 +30,7 @@ secret = '-----BEGIN CERTIFICATE-----MIIEiTCCA3GgAwIBAgIEUpgjODANBgkqhkiG9w0BAQU
 
 @app.route('/auth', methods=['GET'])
 def intermediary():
-    code = request.args.get('?code')
+    code = request.args.get('code')
 
     claims = jwt.get_unverified_claims(code)
 
